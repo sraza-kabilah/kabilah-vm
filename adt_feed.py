@@ -14,21 +14,24 @@ while True:
     client_socket, client_address = server.accept()
     print(f"Connection from {client_address} has been established!")
 
-    # Receive data in chunks
+    # Receive data in chunks, accumulate the message until the end of the HL7 message
     message = ""
     while True:
         chunk = client_socket.recv(4096).decode('utf-8')
         if not chunk:
             break
-        print(chunk)
         message += chunk
+        # Check if the message contains the HL7 message termination character '\r'
+        if '\r' in message:
+            print("Complete HL7 message received.")
+            break
     
     print("Message received and storing in the database...")
 
     # Write the message directly to the database
     try:
         cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
-        cursor = cnxn.cursor()	
+        cursor = cnxn.cursor()
 
         # Insert the message into the database
         cursor.execute('''
@@ -36,7 +39,7 @@ while True:
         VALUES (?)
         ''', (message,))
         
-        cursor.commit()
+        cnxn.commit()  # Use cnxn.commit() to commit the transaction
         print("Message successfully written to the database.")
 
         # Send back an acknowledgment to the client
@@ -53,3 +56,4 @@ while True:
 
     # Close the connection with the client
     client_socket.close()
+
