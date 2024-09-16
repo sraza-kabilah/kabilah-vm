@@ -1,12 +1,13 @@
 import socket
 import pyodbc
+from datetime import datetime
 
 SQL_CONNECTION_STRING = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:kabilah-sqlserver-1.database.windows.net,1433;Database=TBHC-csv;Uid=kabilahsql;Pwd=Kabilah123;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=300;'
 
 # Set up the server
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(('0.0.0.0', 2575))  # Listen on all interfaces on port 2575
-server.listen(5)
+server.listen(50)
 
 print("Listening for ADT messages...")
 
@@ -42,9 +43,12 @@ while True:
         cnxn.commit()  # Use cnxn.commit() to commit the transaction
         print("Message successfully written to the database.")
 
-        # Send back an acknowledgment to the client
-        acknowledgment = "ACK: Message received and stored successfully."
-        client_socket.send(acknowledgment.encode('utf-8'))
+         # Generate HL7-compliant acknowledgment message
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        ack_message = f"MSH|^~\\&|RECEIVER_APP|RECEIVER_FACILITY|SENDER_APP|SENDER_FACILITY|{timestamp}||ACK^A01|12345|P|2.5\rMSA|AA|12345\r"
+
+        # Send back HL7-compliant acknowledgment to the client
+        client_socket.send(ack_message.encode('utf-8'))
         print("Acknowledgment sent to the client.")
 
     except Exception as e:
