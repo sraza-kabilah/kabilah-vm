@@ -9,7 +9,7 @@ SQL_CONNECTION_STRING = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:kabil
 # Set up the server
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(('0.0.0.0', 2575))  # Listen on all interfaces on port 2575
-server.listen(50)
+server.listen(500)
 
 print("Listening for ADT messages...")
 
