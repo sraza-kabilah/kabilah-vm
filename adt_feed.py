@@ -107,8 +107,6 @@ def process_message(client_socket, message, start_time):
     except Exception as e:
         print(f"Error during acknowledgment or batch processing: {e}")
 
-    finally:
-        client_socket.close()
 
 
 # Start the batch writer thread
