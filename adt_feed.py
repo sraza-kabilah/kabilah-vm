@@ -1,7 +1,7 @@
 import socket
 import pyodbc
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from hl7apy.core import Message
 from hl7apy.parser import parse_message
 
@@ -13,6 +13,12 @@ server.bind(('0.0.0.0', 2575))  # Listen on all interfaces on port 2575
 server.listen(500)
 
 print("Listening for ADT messages...")
+
+batch = []
+batch_lock = threading.Lock()  # Lock to manage access to the batch
+batch_event = threading.Event()  # Event to signal when to write the batch
+BATCH_SIZE = 10  # Number of messages to collect before writing
+BATCH_INTERVAL = 5  # Interval in seconds to write the batch if not full
 
 def create_ack(hl7_message):
     try:
@@ -35,37 +41,72 @@ def create_ack(hl7_message):
         print(f"Error creating ACK message: {e}")
         raise e
 
-def process_message(client_socket, message):
-    print("Message received and storing in the database...")
-
-    try:
-        cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
-        cursor = cnxn.cursor()
-
-        cursor.execute('''
-        INSERT INTO adt_feed_raw (raw_message) 
-        VALUES (?)
-        ''', (message,))
+def batch_writer():
+    """Periodically writes batched messages to the database."""
+    while True:
+        # Wait for either the batch to fill up or the batch interval to pass
+        batch_event.wait(timeout=BATCH_INTERVAL)
         
-        cnxn.commit()
-        print("Message successfully written to the database.")
+        with batch_lock:
+            if not batch:
+                continue  # If the batch is empty, skip
+            try:
+                cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
+                cursor = cnxn.cursor()
 
+                # Batch insert all messages
+                cursor.executemany('''
+                INSERT INTO adt_feed_raw (raw_message) 
+                VALUES (?)
+                ''', [(msg,) for msg in batch])
+                
+                cnxn.commit()
+                print(f"Batch of {len(batch)} messages written to the database.")
+                batch.clear()  # Clear the batch after writing
+            except Exception as e:
+                print(f"Error writing batch to database: {e}")
+            finally:
+                cnxn.close()
+
+        # Reset the event after writing
+        batch_event.clear()
+
+def process_message(client_socket, message, start_time):
+    print("Message received and adding to batch...")
+    
+    with batch_lock:
+        batch.append(message)
+        if len(batch) >= BATCH_SIZE:
+            # If the batch is full, signal the batch writer
+            batch_event.set()
+    
+    try:
         ack_message = create_ack(message)
         client_socket.send(ack_message.encode('utf-8'))
+        ack_sent_time = datetime.now()
         print("Acknowledgment sent to the client.")
-
+        
+        # Calculate total latency
+        ack_latency = (ack_sent_time - start_time).total_seconds()
+        print(f"Total Latency (ACK sent): {ack_latency} seconds")
+    
     except Exception as e:
-        print(f"Error writing to database: {e}")
+        print(f"Error during acknowledgment: {e}")
 
     finally:
-        cnxn.close()
         client_socket.close()
+
+# Start the batch writer thread
+batch_writer_thread = threading.Thread(target=batch_writer, daemon=True)
+batch_writer_thread.start()
 
 while True:
     client_socket, client_address = server.accept()
     print(f"Connection from {client_address} has been established!")
 
     message = ""
+    start_time = datetime.now()
+
     while True:
         chunk = client_socket.recv(4096).decode('utf-8')
         if not chunk:
@@ -76,5 +117,5 @@ while True:
             break
     
     # Start a new thread for processing each message
-    processing_thread = threading.Thread(target=process_message, args=(client_socket, message))
+    processing_thread = threading.Thread(target=process_message, args=(client_socket, message, start_time))
     processing_thread.start()
