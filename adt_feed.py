@@ -21,25 +21,36 @@ BATCH_SIZE = 10  # Number of messages to collect before writing
 BATCH_INTERVAL = 5  # Interval in seconds to write the batch if not full
 
 def create_ack(hl7_message):
+    ack_msg = Message("ACK")
+    
     try:
         original_msg = parse_message(hl7_message)
-        if not original_msg or not original_msg.msh:
-            raise ValueError("MSH segment is missing or malformed")
-
-        ack_msg = Message("ACK")
-        ack_msg.msh.msh_3 = original_msg.msh.msh_5 if original_msg.msh.msh_5 else 'UNKNOWN_SENDER'
-        ack_msg.msh.msh_5 = original_msg.msh.msh_3 if original_msg.msh.msh_3 else 'UNKNOWN_RECEIVER'
-        ack_msg.msh.msh_7 = datetime.now().strftime("%Y%m%d%H%M%S")
-        ack_msg.msh.msh_10 = original_msg.msh.msh_10 if original_msg.msh.msh_10 else 'UNKNOWN_CONTROL_ID'
-        ack_msg.msh.msh_12 = original_msg.msh.msh_12 if hasattr(original_msg.msh, 'msh_12') else '2.3'
-
-        ack_msg.msa.msa_1 = "AA"
-        ack_msg.msa.msa_2 = original_msg.msh.msh_10
         
-        return ack_msg.to_er7()
+        # If parsing succeeds, fill the ACK with values from the original message
+        ack_msg.msh.msh_3 = original_msg.msh.msh_5 or 'UNKNOWN_SENDER'
+        ack_msg.msh.msh_5 = original_msg.msh.msh_3 or 'UNKNOWN_RECEIVER'
+        ack_msg.msh.msh_10 = original_msg.msh.msh_10 or 'UNKNOWN_CONTROL_ID'
+        ack_msg.msh.msh_12 = original_msg.msh.msh_12 if hasattr(original_msg.msh, 'msh_12') else '2.3'
+        ack_msg.msa.msa_1 = "AA"
+        ack_msg.msa.msa_2 = original_msg.msh.msh_10 or 'UNKNOWN_CONTROL_ID'
+    
     except Exception as e:
-        print(f"Error creating ACK message: {e}")
-        raise e
+        # Handle the case where the original message is malformed
+        print(f"Error creating ACK message, generating default ACK: {e}")
+        # Set default values for the ACK
+        ack_msg.msh.msh_3 = 'UNKNOWN_SENDER'
+        ack_msg.msh.msh_5 = 'UNKNOWN_RECEIVER'
+        ack_msg.msh.msh_10 = 'UNKNOWN_CONTROL_ID'
+        ack_msg.msh.msh_12 = '2.3'
+        ack_msg.msa.msa_1 = "AE"  # Error acknowledgment
+        ack_msg.msa.msa_2 = 'UNKNOWN_CONTROL_ID'
+    
+    # Set the timestamp in either case
+    ack_msg.msh.msh_7 = datetime.now().strftime("%Y%m%d%H%M%S")
+    
+    # Return the ACK message in ER7 format
+    return ack_msg.to_er7()
+
 
 def batch_writer():
     """Periodically writes batched messages to the database."""
