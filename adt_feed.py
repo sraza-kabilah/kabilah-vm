@@ -43,7 +43,7 @@ def create_ack(hl7_message):
         ack_msg.msh.msh_10 = '22409150240012595001'
         ack_msg.msh.msh_12 = '2.3'
         ack_msg.msa.msa_1 = "AA"  # Changed to correct 
-        ack_msg.msa.msa_2 = '22409150240012595001'
+        ack_msg.msa.msa_2 = 'UNKNOWN_CONTROL_ID'
     
     # Set the timestamp in either case
     ack_msg.msh.msh_7 = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -83,29 +83,33 @@ def batch_writer():
         batch_event.clear()
 
 def process_message(client_socket, message, start_time):
-    print("Message received and adding to batch...")
-    
-    with batch_lock:
-        batch.append(message)
-        if len(batch) >= BATCH_SIZE:
-            # If the batch is full, signal the batch writer
-            batch_event.set()
+    print("Message received.")
     
     try:
+        # Create and send ACK immediately
         ack_message = create_ack(message)
         client_socket.send(ack_message.encode('utf-8'))
         ack_sent_time = datetime.now()
         print("Acknowledgment sent to the client.")
         
-        # Calculate total latency
+        # Calculate and log ACK latency
         ack_latency = (ack_sent_time - start_time).total_seconds()
         print(f"Total Latency (ACK sent): {ack_latency} seconds")
-    
+
+        # After sending the ACK, add the message to the batch for database writing
+        print("Adding message to batch for database storage...")
+        with batch_lock:
+            batch.append(message)
+            if len(batch) >= BATCH_SIZE:
+                # If the batch is full, signal the batch writer
+                batch_event.set()
+
     except Exception as e:
-        print(f"Error during acknowledgment: {e}")
+        print(f"Error during acknowledgment or batch processing: {e}")
 
     finally:
         client_socket.close()
+
 
 # Start the batch writer thread
 batch_writer_thread = threading.Thread(target=batch_writer, daemon=True)
