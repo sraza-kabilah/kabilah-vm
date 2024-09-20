@@ -25,6 +25,13 @@ while True:
     # Check for non-empty response
     if response != b'':
         print(response)
+
+        # Decode the response from bytes to string (assuming UTF-8 encoding)
+        try:
+            decoded_response = response.decode('utf-8')  # You may need to adjust the encoding based on your data format
+        except UnicodeDecodeError as e:
+            print(f"Decoding error: {e}")
+            decoded_response = response.decode('latin-1')  # Fallback to another encoding if utf-8 fails
         
         # Send default ACK response
         default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
@@ -35,7 +42,7 @@ while True:
             cursor.execute('''
                 INSERT INTO adt_feed_raw (raw_message) 
                 VALUES (?)
-            ''', (response,))
+            ''', (decoded_response,))
             cnxn.commit()
         except Exception as e:
             print(f"Database insert error: {e}")
