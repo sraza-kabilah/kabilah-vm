@@ -5,27 +5,9 @@ def create_default_ack():
     """
     Creates a default ACK message with generic values in case of an error.
     """
-    default_ack = hl7.parse("MSH|^~\\&|ACK|SENDER|RECEIVER|20240920||ACK^A01|MSG00001|P|2.3\r" +
-                            "MSA|AA|MSG00001\r")
+    default_ack = hl7.parse("MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3\r" +
+                            "MSA|CA|2.3​​\r")
     return str(default_ack)
-
-def create_hl7_ack(message):
-    """
-    Creates an HL7 ACK message for a given incoming HL7 message.
-    If there is an error, it returns a default ACK message.
-    """
-    try:
-        ack_message = hl7.parse(message)
-        # Extract necessary information to create an ACK
-        message_control_id = ack_message.segment('MSH')[9]
-        
-        # Create ACK message structure
-        ack = hl7.parse(f"MSH|^~\\&|ACK|SENDER|RECEIVER|{ack_message.segment('MSH')[4]}||ACK^A01|{message_control_id}|P|2.3\r" +
-                        "MSA|AA|{message_control_id}\r")
-        return str(ack)
-    except Exception as e:
-        print(f"Error parsing HL7 message: {e}")
-        return create_default_ack()
 
 def handle_client(client_socket, client_address):
     """
@@ -42,7 +24,7 @@ def handle_client(client_socket, client_address):
                 print(f"Received data: \n{hl7_message}")
             
                 # Send back an HL7 ACK immediately upon receiving any message
-                ack_message = create_hl7_ack(hl7_message)
+                ack_message = create_default_ack(hl7_message)
                 print(f"Sending ACK: \n{ack_message}")
                 client_socket.sendall(ack_message.encode('utf-8'))
     
