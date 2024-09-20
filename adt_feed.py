@@ -2,6 +2,7 @@ import socket
 import time
 
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 socket.bind(('', 8200))
 
 while True:
