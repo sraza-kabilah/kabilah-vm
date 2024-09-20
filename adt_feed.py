@@ -24,7 +24,7 @@ while True:
     cursor.execute('''
             INSERT INTO adt_feed_raw (raw_message) 
             VALUES (?)
-            ''', (response.decode('utf-8'),))
+            ''', (response,))
     cursor.commit()
     cnxn.close()
     
