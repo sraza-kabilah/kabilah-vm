@@ -43,7 +43,7 @@ def handle_client(client_socket, client_address):
     except Exception as e:
         print(f"Error occurred: {e}")
 
-def start_server(host='0.0.0.0', port=2575):
+def start_server(host='0.0.0.0', port=8200):
     """
     Starts a TCP server to listen for HL7 messages and send ACKs.
     Keeps the connection open and continues to handle multiple messages.
