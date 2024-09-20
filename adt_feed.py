@@ -1,13 +1,13 @@
 import socket
 import time
 
-socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-socket.bind(('', 8200))
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_socket.bind(('', 8200))
 
 while True:
-    socket.listen()
-    client, address = socket.accept()
+    server_socket.listen()
+    client, address = server_socket.accept()
     print("{} connected".format( address ))
     time.sleep(0.2)
     response = client.recv(8112)
