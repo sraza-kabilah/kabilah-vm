@@ -15,3 +15,5 @@ while True:
     default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
     if response != "":
         client.send(default_ack.encode())
+    
+    client.close()
