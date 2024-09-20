@@ -28,25 +28,20 @@ def handle_client(client_socket, client_address):
     try:
         while True:
             data = client_socket.recv(1024)
-            if not data:
-                print(f"Connection closed by {client_address}")
-                break
+            if data:
+                hl7_message = data.decode('utf-8')
+                print(f"Received data: \n{hl7_message}")
             
-            hl7_message = data.decode('utf-8')
-            print(f"Received data: \n{hl7_message}")
-            
-            # Send back an HL7 ACK immediately upon receiving any message
-            ack_message = create_hl7_ack(hl7_message)
-            if ack_message:
-                print(f"Sending ACK: \n{ack_message}")
-                client_socket.sendall(ack_message.encode('utf-8'))
-            else:
-                print("Failed to generate ACK. Invalid HL7 message format.")
+                # Send back an HL7 ACK immediately upon receiving any message
+                ack_message = create_hl7_ack(hl7_message)
+                if ack_message:
+                    print(f"Sending ACK: \n{ack_message}")
+                    client_socket.sendall(ack_message.encode('utf-8'))
+                else:
+                    print("Failed to generate ACK. Invalid HL7 message format.")
     
     except Exception as e:
         print(f"Error occurred: {e}")
-    finally:
-        client_socket.close()
 
 def start_server(host='0.0.0.0', port=2575):
     """
