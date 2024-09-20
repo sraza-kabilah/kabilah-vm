@@ -24,7 +24,7 @@ def handle_client(client_socket, client_address):
                 print(f"Received data: \n{hl7_message}")
             
                 # Send back an HL7 ACK immediately upon receiving any message
-                ack_message = create_default_ack(hl7_message)
+                ack_message = create_default_ack()
                 print(f"Sending ACK: \n{ack_message}")
                 client_socket.sendall(ack_message.encode('utf-8'))
     
