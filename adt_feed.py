@@ -1,7 +1,7 @@
 import socket
 import pyodbc
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from hl7apy.core import Message
 from hl7apy.parser import parse_message
 
@@ -82,6 +82,35 @@ def batch_writer():
         # Reset the event after writing
         batch_event.clear()
 
+def handle_client(client_socket, client_address):
+    """Handle a client connection."""
+    print(f"Handling connection from {client_address}")
+    start_time = datetime.now()
+
+    try:
+        while True:
+            message = ""
+            
+            while True:
+                chunk = client_socket.recv(4096).decode('utf-8')
+                if not chunk:
+                    print(f"Client {client_address} closed the connection.")
+                    return  # Client closed the connection
+                message += chunk
+                if '\r' in message:
+                    print("Complete HL7 message received.")
+                    break
+
+            # Process the message
+            process_message(client_socket, message, start_time)
+
+    except Exception as e:
+        print(f"Error handling client {client_address}: {e}")
+    finally:
+        client_socket.close()
+        print(f"Connection with {client_address} closed.")
+
+
 def process_message(client_socket, message, start_time):
     print("Message received.")
     
@@ -92,10 +121,6 @@ def process_message(client_socket, message, start_time):
         ack_sent_time = datetime.now()
         print("Acknowledgment sent to the client.")
         
-        # Calculate and log ACK latency
-        ack_latency = (ack_sent_time - start_time).total_seconds()
-        print(f"Total Latency (ACK sent): {ack_latency} seconds")
-
         # After sending the ACK, add the message to the batch for database writing
         print("Adding message to batch for database storage...")
         with batch_lock:
@@ -108,27 +133,15 @@ def process_message(client_socket, message, start_time):
         print(f"Error during acknowledgment or batch processing: {e}")
 
 
-
 # Start the batch writer thread
 batch_writer_thread = threading.Thread(target=batch_writer, daemon=True)
 batch_writer_thread.start()
 
+# Main loop to accept new connections (only once per connection)
 while True:
     client_socket, client_address = server.accept()
     print(f"Connection from {client_address} has been established!")
 
-    message = ""
-    start_time = datetime.now()
-
-    while True:
-        chunk = client_socket.recv(4096).decode('utf-8')
-        if not chunk:
-            break
-        message += chunk
-        if '\r' in message:
-            print("Complete HL7 message received.")
-            break
-    
-    # Start a new thread for processing each message
-    processing_thread = threading.Thread(target=process_message, args=(client_socket, message, start_time))
-    processing_thread.start()
+    # Start a new thread to handle the client connection
+    client_handler_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
+    client_handler_thread.start()
