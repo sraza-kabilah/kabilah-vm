@@ -13,4 +13,4 @@ while True:
     print(response)
     default_ack = r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3"
     if response != "":
-        client.send(default_ack)
+        client.send(default_ack.encode())
