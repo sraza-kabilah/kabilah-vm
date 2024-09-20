@@ -5,7 +5,8 @@ def create_default_ack():
     """
     Creates a default ACK message with generic values in case of an error.
     """
-    default_ack = hl7.parse(r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + r"MSA|CA|2.3")
+    default_ack = r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3\r" + \
+                  r"MSA|CA|2.3\r"
 
     return str(default_ack)
 
