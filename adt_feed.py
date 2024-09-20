@@ -35,7 +35,7 @@ while True:
             cursor.execute('''
                 INSERT INTO adt_feed_raw (raw_message) 
                 VALUES (?)
-            ''', (response,))
+            ''', (response.decode(),))
             cnxn.commit()
         except Exception as e:
             print(f"Database insert error: {e}")
