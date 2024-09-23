@@ -13,50 +13,44 @@ server_socket.bind(('', 8200))
 cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
 cursor = cnxn.cursor()
 
-try:
-    while True:
-        server_socket.listen()
-        client, address = server_socket.accept()
-        print("{} connected".format(address))
+while True:
+    server_socket.listen()
+    client, address = server_socket.accept()
+    print("{} connected".format(address))
+    
+    try:
+        # Set a timeout for receiving data
+        client.settimeout(10)
         
-        try:
-            # Set a timeout for receiving data
-            client.settimeout(60)
-            
-            # Receive response
-            response = client.recv(8112)
-            
-            # Check for non-empty response
-            if response:
-                print(response)
-                
-                # Send default ACK response
-                default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
-                client.send(default_ack.encode())
-                
-                # Insert response into database
-                try:
-                    cursor.execute('''
-                        INSERT INTO adt_feed_raw (raw_message) 
-                        VALUES (?)
-                    ''', (response.decode(),))
-                    cnxn.commit()
-                except Exception as e:
-                    print(f"Database insert error: {e}")
-            
-            # Give some time before closing the connection
-            time.sleep(60)
+        # Receive response
+        response = client.recv(8112)
         
-        except socket.timeout:
-            print("Client timed out.")
+        # Check for non-empty response
+        if response:
+            print(response)
+            
+            # Send default ACK response
+            default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
+            client.send(default_ack.encode())
+            
+            # Insert response into database
+            try:
+                cursor.execute('''
+                    INSERT INTO adt_feed_raw (raw_message) 
+                    VALUES (?)
+                ''', (response.decode(),))
+                cnxn.commit()
+            except Exception as e:
+                print(f"Database insert error: {e}")
         
-        finally:
-            # Close client connection (but keep the database connection open)
-            client.close()
+        # Give some time before closing the connection
+        time.sleep(0.5)
+    
+    except socket.timeout:
+        print("Client timed out.")
+    
+    finally:
+        # Close client connection
+        client.close()
+       
 
-except KeyboardInterrupt:
-    print("Shutting down the server.")
-finally:
-    # Properly close the database connection when the server shuts down
-    cnxn.close()
-    server_socket.close()
