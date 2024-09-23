@@ -12,13 +12,11 @@ server_socket.bind(('', 8200))
 # Establish the database connection outside the loop for reuse
 cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
 cursor = cnxn.cursor()
+server_socket.listen()
+client, address = server_socket.accept()
+print("{} connected".format(address))
 
 while True:
-    server_socket.listen()
-    client, address = server_socket.accept()
-    print("{} connected".format(address))
-    time.sleep(0.2)
-    
     # Receive response
     response = client.recv(8112)
     
@@ -39,9 +37,12 @@ while True:
             cnxn.commit()
         except Exception as e:
             print(f"Database insert error: {e}")
+    else:
+        break
     
-    # Close client connection
-    client.close()
+
+# Close client connection
+client.close()
 
 # Properly close the database connection when done
 cnxn.close()
