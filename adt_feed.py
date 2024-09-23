@@ -16,27 +16,37 @@ server_socket.listen()
 client, address = server_socket.accept()
 print("{} connected".format(address))
 
+# Parameters for batch insert
+batch_size = 10  # Number of messages to accumulate before inserting
+batch_timeout = 30  # Max time (in seconds) before flushing the batch to the DB
+message_batch = []
+last_insert_time = time.time()
+
 while True:
     # Receive response
     response = client.recv(8112)
     
     # Check for non-empty response
     if response != b'':
+        
         print(response)
         
         # Send default ACK response
         default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
         client.send(default_ack.encode())
         
-        # Insert response into database
-        try:
-            cursor.execute('''
-                INSERT INTO adt_feed_raw (raw_message) 
-                VALUES (?)
-            ''', (response.decode(),))
-            cnxn.commit()
-        except Exception as e:
-            print(f"Database insert error: {e}")
+        message_batch.append(response.decode())
+
+        if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
+            try:
+                cursor.execute('''
+                    INSERT INTO adt_feed_raw (raw_message) 
+                    VALUES (?)
+                ''', (response.decode(),))
+                cnxn.commit()
+            except Exception as e:
+                print(f"Database insert error: {e}")
+    
     else:
         break
     
