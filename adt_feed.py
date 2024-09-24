@@ -33,7 +33,11 @@ while True:
         default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
         client.send(default_ack.encode())
         
-        message_batch.append(response.decode())
+        decoded_response = response.decode()
+
+        if 'ADT^A01' in decoded_response or 'ADT^A02' in decoded_response or 'ADT^A03' in decoded_response:
+            # Add the message to the batch if it contains one of the ADT types
+            message_batch.append(decoded_response)
 
         if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
             print("BATCH" , message_batch)
@@ -65,7 +69,7 @@ if message_batch:
             ''', [(message,) for message in message_batch])
         cnxn.commit()
         cnxn.close()
-        
+
     except Exception as e:
             print(f"Database insert error: {e}")
 
