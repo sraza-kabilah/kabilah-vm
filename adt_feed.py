@@ -1,7 +1,7 @@
 import socket
 import time
 import pyodbc
-from parse_HL7 import get_patient_class
+from parse_HL7 import get_event_type_and_patient_class
 
 SQL_CONNECTION_STRING = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:kabilah-sqlserver-1.database.windows.net,1433;Database=TBHC-csv;Uid=kabilahsql;Pwd=Kabilah123;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=300;'
 
@@ -33,10 +33,10 @@ while True:
         default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
         client.send(default_ack.encode())
         
-        # Get Patient Class
-        patient_class = get_patient_class(response)
-        print("CLASS: ", patient_class)
-        if patient_class == 'I':
+        # Filtering 
+        event_type, patient_class = get_event_type_and_patient_class(response)
+        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A08']
+        if event_type in allowed_event_types and patient_class == 'O':
             decoded_response = response.decode()
             message_batch.append(decoded_response)
             print(message_batch)
