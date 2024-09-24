@@ -36,7 +36,7 @@ while True:
         # Filtering 
         event_type, patient_class = get_event_type_and_patient_class(response)
         allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A08']
-        if event_type in allowed_event_types and patient_class == 'O':
+        if event_type in allowed_event_types and patient_class == 'I':
             decoded_response = response.decode()
             message_batch.append(decoded_response)
             print(message_batch)
