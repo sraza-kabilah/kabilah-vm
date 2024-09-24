@@ -1,6 +1,7 @@
 import socket
 import time
 import pyodbc
+from parse_HL7 import get_patient_class
 
 SQL_CONNECTION_STRING = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:kabilah-sqlserver-1.database.windows.net,1433;Database=TBHC-csv;Uid=kabilahsql;Pwd=Kabilah123;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=300;'
 
@@ -26,19 +27,21 @@ while True:
     
     # Check for non-empty response
     if response != b'':
-        
         print(response)
         
-        # Send default ACK response
+        # Send ACK 
         default_ack = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||ACK|2.3|T|2.3" + "\n" + r"MSA|CA|2.3" + "\r\x1c\r"
         client.send(default_ack.encode())
         
-        decoded_response = response.decode()
-
-        if 'ADT^A01' in decoded_response or 'ADT^A02' in decoded_response or 'ADT^A03' in decoded_response:
-            # Add the message to the batch if it contains one of the ADT types
+        # Get Patient Class
+        patient_class = get_patient_class(response)
+        print("CLASS: ", patient_class)
+        if patient_class == 'I':
+            decoded_response = response.decode()
             message_batch.append(decoded_response)
+            print(message_batch)
 
+        # Upload Batch to DB
         if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
             print("BATCH" , message_batch)
             cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
@@ -58,7 +61,7 @@ while True:
     else:
         break
     
-
+# Upload Leftovers to DB
 if message_batch:
     try:
         cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
