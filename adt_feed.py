@@ -10,8 +10,6 @@ server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server_socket.bind(('', 8200))
 
 # Establish the database connection outside the loop for reuse
-cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
-cursor = cnxn.cursor()
 server_socket.listen()
 client, address = server_socket.accept()
 print("{} connected".format(address))
@@ -38,12 +36,18 @@ while True:
         message_batch.append(response.decode())
 
         if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
+            print("BATCH" , message_batch)
+            cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
+            cursor = cnxn.cursor()
             try:
-                cursor.execute('''
+                cursor.executemany('''
                     INSERT INTO adt_feed_raw (raw_message) 
                     VALUES (?)
-                ''', (response.decode(),))
+                    ''', [(message,) for message in message_batch])
                 cnxn.commit()
+                cnxn.close()
+                message_batch.clear()
+                last_insert_time = time.time()
             except Exception as e:
                 print(f"Database insert error: {e}")
     
@@ -51,8 +55,19 @@ while True:
         break
     
 
+if message_batch:
+    try:
+        cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
+        cursor = cnxn.cursor()
+        cursor.executemany('''
+            INSERT INTO adt_feed_raw (raw_message) 
+            VALUES (?)
+            ''', [(message,) for message in message_batch])
+        cnxn.commit()
+        cnxn.close()
+        
+    except Exception as e:
+            print(f"Database insert error: {e}")
+
 # Close client connection
 client.close()
-
-# Properly close the database connection when done
-cnxn.close()
