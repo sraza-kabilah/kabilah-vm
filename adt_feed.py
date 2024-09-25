@@ -19,7 +19,6 @@ print("{} connected".format(address))
 batch_size = 10  # Number of messages to accumulate before inserting
 batch_timeout = 30  # Max time (in seconds) before flushing the batch to the DB
 message_batch = []
-last_insert_time = time.time()
 
 while True:
     # Receive response
@@ -42,7 +41,7 @@ while True:
             print(message_batch)
 
         # Upload Batch to DB
-        if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
+        if len(message_batch) >= batch_size:
             print("BATCH" , message_batch)
             cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
             cursor = cnxn.cursor()
@@ -54,7 +53,6 @@ while True:
                 cnxn.commit()
                 cnxn.close()
                 message_batch.clear()
-                last_insert_time = time.time()
             except Exception as e:
                 print(f"Database insert error: {e}")
     
