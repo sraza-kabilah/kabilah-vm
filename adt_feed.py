@@ -19,6 +19,7 @@ print("{} connected".format(address))
 batch_size = 10  # Number of messages to accumulate before inserting
 batch_timeout = 30  # Max time (in seconds) before flushing the batch to the DB
 message_batch = []
+last_insert_time = time.time()
 
 while True:
     # Receive response
@@ -34,28 +35,29 @@ while True:
         
         # Filtering 
         event_type, patient_class = get_event_type_and_patient_class(response)
-        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A08']
+        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A06', 'ADT^A07', 'ADT^A08', 'ADT^A11', 'ADT^A12', 'ADT^A13', 'ADT^A14']
         if event_type in allowed_event_types and patient_class == 'I':
             decoded_response = response.decode()
             message_batch.append(decoded_response)
             print(message_batch)
 
         # Upload Batch to DB
-        if len(message_batch) >= batch_size:
+        if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
             print("BATCH" , message_batch)
-            cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
-            cursor = cnxn.cursor()
             try:
-                cursor.executemany('''
-                    INSERT INTO adt_feed_raw (raw_message) 
-                    VALUES (?)
-                    ''', [(message,) for message in message_batch])
-                cnxn.commit()
-                cnxn.close()
-                message_batch.clear()
+                if len(message_batch) > 0:
+                    cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
+                    cursor = cnxn.cursor()
+                    cursor.executemany('''
+                        INSERT INTO adt_feed_raw (raw_message) 
+                        VALUES (?)
+                        ''', [(message,) for message in message_batch])
+                    cnxn.commit()
+                    cnxn.close()
+                    message_batch.clear()
+                    last_insert_time = time.time()
             except Exception as e:
                 print(f"Database insert error: {e}")
-    
     else:
         break
     
