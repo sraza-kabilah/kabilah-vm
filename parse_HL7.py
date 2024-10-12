@@ -1,15 +1,121 @@
+import re
+from datetime import datetime
+
+def parse_hl7_message(message):
+    # Regular expression to find segment identifiers
+    segment_regex = re.compile(r'([A-Z][A-Z0-9]{2})\|')
+
+    segments = {}
+    positions = []
+    for match in segment_regex.finditer(message):
+        positions.append((match.start(), match.group(1)))
+
+    # Extract segments based on positions
+    for segment in segments:
+        fields = segment.split('|')
+        print("other fields", fields)
+        segment_type = fields[0]
+
+    for i in range(len(positions)):
+        start_pos = positions[i][0]
+        segment_name = positions[i][1]
+        end_pos = positions[i+1][0] if i+1 < len(positions) else len(message)
+        segment_content = message[start_pos:end_pos+3]
+        fields = segment_content.strip().split('|')
+        segments[segment_name] = fields
+
+    # print("SEGMENTS", segments['A02'])
+
+    data = {
+        'name': '',
+        'age': '',
+        'gender': '',
+        'admit_date': '',
+        'current_doctor': '',
+        'unit': '',
+        'room': '',
+        'patient_class': '',
+        'message_type': '',
+        'mrn': ''
+    }
+
+    if 'MSH' in segments:
+        msh_fields = segments['MSH']
+        if len(msh_fields) >= 9:
+            event_type = msh_fields[8]
+            data['message_type'] = event_type.split('^')[1]
+
+    if data['message_type'] in segments: 
+        admit_date_fields = segments[data['message_type']]
+        data['admit_date'] = admit_date_fields[1]
+
+
+    if 'PID' in segments:
+        pid_fields = segments['PID']
+        # Name is in PID-5
+        if len(pid_fields) > 5:
+            mrn = pid_fields[3]
+            data['mrn'] = mrn
+            patient_name_field = pid_fields[5]
+            name_components = patient_name_field.split('^')
+            # Name format: Last^First^Middle^Suffix^Prefix^Degree
+            first_name = name_components[1] if len(name_components) > 1 else ''
+            last_name = name_components[0] if len(name_components) > 0 else ''
+            data['name'] = f"{first_name} {last_name}".strip()
+
+        # Date of Birth is in PID-7
+        if len(pid_fields) > 7:
+            dob_str = pid_fields[7]
+            if dob_str:
+                try:
+                    dob = datetime.strptime(dob_str, '%Y%m%d')
+                    today = datetime.today()
+                    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                    data['age'] = age
+                except ValueError:
+                    data['age'] = 'Invalid DOB'
+            else:
+                data['age'] = 'Unknown'
+        else:
+            data['age'] = 'Unknown'
+
+        # Gender is in PID-8
+        if len(pid_fields) > 8:
+            data['gender'] = pid_fields[8]
+        else:
+            data['gender'] = 'Unknown'
+
+    # Parse PV1 segment
+    if 'PV1' in segments:
+        pv1_fields = segments['PV1']
+        # print("PV1", pv1_fields)
+        # Patient Class is in PV1-2
+        if len(pv1_fields) > 2:
+            data['patient_class'] = pv1_fields[2]
+
+        # Room is in PV1-3
+        if len(pv1_fields) > 3:
+            room_field = pv1_fields[3]
+            room_components = room_field.split('^')
+            data['unit'] = str(room_components[0])
+            data['room'] = '-'.join(room_components[1:])
+
+        # Current Doctor is in PV1-7 (Attending Doctor)
+        if len(pv1_fields) > 7:
+            attending_doctor_field = pv1_fields[7]
+            doctor_components = attending_doctor_field.split('^')
+            # Doctor Name format: ID^LastName^FirstName^MiddleInitialOrName^Suffix^Prefix^Degree
+            doctor_first_name = doctor_components[2] if len(doctor_components) > 2 else ''
+            doctor_last_name = doctor_components[1] if len(doctor_components) > 1 else ''
+            data['current_doctor'] = f"{doctor_first_name} {doctor_last_name}".strip()
+        else:
+            data['current_doctor'] = 'Unknown'
+        
+
+    return data
+
+
 def get_event_type_and_patient_class(hl7_message):
-    """
-    Extracts the Event Type from the MSH segment and the Patient Class from the PV1 segment in an HL7 message.
-
-    Parameters:
-    hl7_message (str or bytes): The HL7 message to parse.
-
-    Returns:
-    tuple:
-        - event_type (str): The Event Type (e.g., 'ADT^A08'), or None if not found.
-        - patient_class (str): The Patient Class (e.g., 'I', 'O'), or None if not found.
-    """
     # If the message is bytes, decode it to a string
     if isinstance(hl7_message, bytes):
         hl7_message = hl7_message.decode('utf-8')

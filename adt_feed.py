@@ -1,7 +1,8 @@
 import socket
 import time
 import pyodbc
-from parse_HL7 import get_event_type_and_patient_class
+from parse_HL7 import get_event_type_and_patient_class, parse_hl7_message
+from add_to_sql import patient_exists, add_patient, update_patient, remove_patient
 
 SQL_CONNECTION_STRING = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:kabilah-sqlserver-1.database.windows.net,1433;Database=TBHC-csv;Uid=kabilahsql;Pwd=Kabilah123;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=300;'
 
@@ -18,7 +19,7 @@ print("{} connected".format(address))
 # Parameters for batch insert
 batch_size = 10  # Number of messages to accumulate before inserting
 batch_timeout = 30  # Max time (in seconds) before flushing the batch to the DB
-message_batch = []
+messages = []
 last_insert_time = time.time()
 
 while True:
@@ -35,43 +36,62 @@ while True:
         
         # Filtering 
         event_type, patient_class = get_event_type_and_patient_class(response)
-        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A06', 'ADT^A07', 'ADT^A08', 'ADT^A11', 'ADT^A12', 'ADT^A13', 'ADT^A14']
+        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A06', 'ADT^A07', 'ADT^A08', 'ADT^A11']
         print(event_type)
         print(patient_class)
         if event_type in allowed_event_types and patient_class == 'I':
             decoded_response = response.decode()
-            message_batch.append(decoded_response)
-            print(message_batch)
+            messages.append(decoded_response)
+            print(messages)
 
         # Upload Batch to DB
-        if len(message_batch) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
-            print("BATCH" , message_batch)
-            try:
-                if len(message_batch) > 0:
-                    cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
-                    cursor = cnxn.cursor()
-                    cursor.executemany('''
-                        INSERT INTO adt_feed_raw (raw_message) 
-                        VALUES (?)
-                        ''', [(message,) for message in message_batch])
-                    cnxn.commit()
-                    cnxn.close()
-                    message_batch.clear()
-                    last_insert_time = time.time()
-            except Exception as e:
-                print(f"Database insert error: {e}")
+        if len(messages) >= batch_size or (time.time() - last_insert_time) > batch_timeout:
+            for i, message in enumerate(messages, 1):
+                # Connect to the database
+                cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
+                cursor = cnxn.cursor()
+                result = parse_hl7_message(message)
+                message_type = result['message_type']
+                            
+                if result['unit'] == 'G8W' or result['unit'] == 'GCPCU' or result['unit'] == 'G8WR':
+                    print(f"Message {i}:")
+                    print(f"  Message Type: {result['message_type']}")
+                    print(f"  Admit Date: {result['admit_date']}")
+                    print(f"  MRN: {result['mrn']}")
+                    print(f"  Name: {result['name']}")
+                    print(f"  Age: {result['age']}")
+                    print(f"  Gender: {result['gender']}")
+                    print(f"  Current Doctor: {result['current_doctor']}")
+                    print(f"  Unit: {result['unit']}")
+                    print(f"  Room: {result['room']}")
+                    print(f"  Patient Class: {result['patient_class']}\n")
+                    
+                    if message_type in ['A01', 'A06']:
+                        if not patient_exists(result['mrn'], cursor):
+                            add_patient(result, cursor, cnxn)
+                    elif message_type in ['A02', 'A08', 'A09', 'A10']:
+                        if patient_exists(result['mrn'], cursor):
+                            update_patient(result, cursor, cnxn)
+                    elif message_type in ['A03', 'A07', 'A11']:
+                        print("in delete if statement")
+                        if patient_exists(result['mrn'], cursor):
+                            remove_patient(result['mrn'], cursor, cnxn)
+                        else:
+                            print(f"Patient does not exist, no need to delete: {result}")
+                else:
+                    print("Wrong unit", result['unit'])
     else:
         break
     
 # Upload Leftovers to DB
-if message_batch:
+if messages:
     try:
         cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
         cursor = cnxn.cursor()
         cursor.executemany('''
             INSERT INTO adt_feed_raw (raw_message) 
             VALUES (?)
-            ''', [(message,) for message in message_batch])
+            ''', [(message,) for message in messages])
         cnxn.commit()
         cnxn.close()
 
