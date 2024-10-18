@@ -35,7 +35,7 @@ while True:
         
         # Filtering 
         event_type, patient_class = get_event_type_and_patient_class(response)
-        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A06', 'ADT^A07', 'ADT^A08', 'ADT^A11', 'ADT^A12', 'ADT^A13', 'ADT^A14']
+        allowed_event_types = ['ADT^A01', 'ADT^A02', 'ADT^A03', 'ADT^A04', 'ADT^A05', 'ADT^A06', 'ADT^A07', 'ADT^A08', 'ADT^A09', 'ADT^A11', 'ADT^A17']
         print(event_type)
         print(patient_class)
         if event_type in allowed_event_types and patient_class == 'I':
@@ -51,7 +51,7 @@ while True:
                     cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
                     cursor = cnxn.cursor()
                     cursor.executemany('''
-                        INSERT INTO adt_feed_raw (raw_message) 
+                        INSERT INTO adt_feed_raw (raw_message, event_type) 
                         VALUES (?)
                         ''', [(message,) for message in message_batch])
                     cnxn.commit()
@@ -69,7 +69,7 @@ if message_batch:
         cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
         cursor = cnxn.cursor()
         cursor.executemany('''
-            INSERT INTO adt_feed_raw (raw_message) 
+            INSERT INTO adt_feed_raw (raw_message, event_type)
             VALUES (?)
             ''', [(message,) for message in message_batch])
         cnxn.commit()
