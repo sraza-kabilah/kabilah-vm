@@ -40,7 +40,7 @@ while True:
         print(patient_class)
         if event_type in allowed_event_types and patient_class == 'I':
             decoded_response = response.decode()
-            message_batch.append(decoded_response)
+            message_batch.append((decoded_response, event_type))
             print(message_batch)
 
         # Upload Batch to DB
@@ -52,7 +52,7 @@ while True:
                     cursor = cnxn.cursor()
                     cursor.executemany('''
                         INSERT INTO adt_feed_raw (raw_message, event_type) 
-                        VALUES (?)
+                        VALUES (?, ?)
                         ''', [(message,) for message in message_batch])
                     cnxn.commit()
                     cnxn.close()
