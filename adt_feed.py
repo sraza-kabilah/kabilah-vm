@@ -52,7 +52,7 @@ while True:
                     cursor = cnxn.cursor()
                     cursor.executemany('''
                         INSERT INTO adt_feed_raw (raw_message, event_type) 
-                        VALUES (?)
+                        VALUES (?, ?)
                         ''', [(message,) for message in message_batch])
                     cnxn.commit()
                     cnxn.close()
