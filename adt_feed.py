@@ -53,15 +53,15 @@ while True:
                     cursor.executemany('''
                         INSERT INTO adt_feed_raw (raw_message, event_type) 
                         VALUES (?, ?)
-                        ''', [(message,) for message in message_batch])
+                        ''', message_batch)  # message_batch should be a list of tuples (message, event_type)
                     cnxn.commit()
                     cnxn.close()
                     message_batch.clear()
-                    last_insert_time = time.time()
+                last_insert_time = time.time()
             except Exception as e:
-                print(f"Database insert error: {e}")
-    else:
-        break
+                 print(f"Database insert error: {e}")
+        else:
+            break
     
 # Upload Leftovers to DB
 if message_batch:
