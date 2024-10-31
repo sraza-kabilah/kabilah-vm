@@ -51,7 +51,7 @@ while True:
                     cnxn = pyodbc.connect(SQL_CONNECTION_STRING)
                     cursor = cnxn.cursor()
                     cursor.executemany('''
-                        INSERT INTO adt_feed_raw (raw_message, event_type) 
+                        INSERT INTO adt_feed_raw (raw_message) 
                         VALUES (?)
                         ''', [(message,) for message in message_batch])
                     cnxn.commit()
