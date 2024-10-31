@@ -40,7 +40,7 @@ while True:
         print(patient_class)
         if event_type in allowed_event_types and patient_class == 'I':
             decoded_response = response.decode()
-            message_batch.append((decoded_response, event_type))
+            message_batch.append(decoded_response)
             print(message_batch)
 
         # Upload Batch to DB
@@ -52,16 +52,16 @@ while True:
                     cursor = cnxn.cursor()
                     cursor.executemany('''
                         INSERT INTO adt_feed_raw (raw_message, event_type) 
-                        VALUES (?, ?)
-                        ''', message_batch)  # message_batch should be a list of tuples (message, event_type)
+                        VALUES (?)
+                        ''', [(message,) for message in message_batch])
                     cnxn.commit()
                     cnxn.close()
                     message_batch.clear()
-                last_insert_time = time.time()
+                    last_insert_time = time.time()
             except Exception as e:
-                 print(f"Database insert error: {e}")
-        else:
-            break
+                print(f"Database insert error: {e}")
+    else:
+        break
     
 # Upload Leftovers to DB
 if message_batch:
