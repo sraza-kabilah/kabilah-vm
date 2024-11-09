@@ -39,6 +39,8 @@ def insert_batch_to_db(batch):
             print("Batch inserted into the database.")
         except Exception as e:
             print(f"Database insert error: {e}")
+    else:
+        print("Batch is empty. Nothing to insert into the database.")
 
 # Socket setup
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
