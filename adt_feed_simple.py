@@ -10,6 +10,10 @@ DEFAULT_ACK = "\x0b" + r"MSH|^~\&|||HIHLSEA-230502|EAGLE 2000|20240920010246||AC
 
 # Helper function to parse patient class
 def get_patient_class(hl7_message):
+    # If the message is bytes, decode it to a string
+    if isinstance(hl7_message, bytes):
+        hl7_message = hl7_message.decode('utf-8')
+
     # Remove any starting/trailing special characters
     hl7_message = hl7_message.strip('\x0b').strip('\x1c\r')
     segments = hl7_message.split('\r')
@@ -56,16 +60,15 @@ while True:
                 # Break the inner loop if response is empty, signaling end of client session
                 break
 
-            # Decode response once
-            decoded_response = response.decode()
-            print("Received message:", decoded_response)
+            print("Received message:", response)
             client.send(DEFAULT_ACK.encode())
 
             # Filter based on patient class
-            patient_class = get_patient_class(decoded_response)
+            patient_class = get_patient_class(response)
             print(f"Patient Class: {patient_class}")
 
             if patient_class == 'I':
+                decoded_response = response.decode('utf-8')
                 message_batch.append(decoded_response)
                 print("Message added to batch.")
 
