@@ -29,6 +29,8 @@ def get_patient_class(hl7_message):
 # Database insertion function
 def insert_batch_to_db(batch):
     if batch:
+        print("Inserting batch into the database:")
+        print(batch)
         try:
             with pyodbc.connect(SQL_CONNECTION_STRING) as cnxn:
                 cursor = cnxn.cursor()
@@ -75,12 +77,14 @@ while True:
 
             # Check if it's time to insert the batch into the database
             if len(message_batch) >= BATCH_SIZE or (time.time() - last_insert_time) > BATCH_TIMEOUT:
+                print("Batch size or timeout reached. Preparing to insert batch into the database.")
                 insert_batch_to_db(message_batch)
                 message_batch.clear()
                 last_insert_time = time.time()
     finally:
         # Final batch insert for any remaining messages
         if message_batch:
+            print("Final insert for remaining messages in batch.")
             insert_batch_to_db(message_batch)
         client.close()
         print(f"Connection with {address} closed. Waiting for new connection...")
