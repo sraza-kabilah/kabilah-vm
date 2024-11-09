@@ -28,14 +28,15 @@ def get_patient_class(hl7_message):
 
 # Database insertion function
 def insert_batch_to_db(batch):
-    try:
-        with pyodbc.connect(SQL_CONNECTION_STRING) as cnxn:
-            cursor = cnxn.cursor()
-            cursor.executemany('INSERT INTO adt_feed_raw (raw_message) VALUES (?)', [(message,) for message in batch])
-            cnxn.commit()
-        print("Batch inserted into the database.")
-    except Exception as e:
-        print(f"Database insert error: {e}")
+    if batch:
+        try:
+            with pyodbc.connect(SQL_CONNECTION_STRING) as cnxn:
+                cursor = cnxn.cursor()
+                cursor.executemany('INSERT INTO adt_feed_raw (raw_message) VALUES (?)', [(message,) for message in batch])
+                cnxn.commit()
+            print("Batch inserted into the database.")
+        except Exception as e:
+            print(f"Database insert error: {e}")
 
 # Socket setup
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
