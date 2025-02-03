@@ -62,6 +62,7 @@ while True:
         while True:
             response = client.recv(8112)
             if not response:
+                print("Not Response, End of Client Session")
                 # Break the inner loop if response is empty, signaling end of client session
                 break
 
